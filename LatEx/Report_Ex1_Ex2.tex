@@ -1,0 +1,78 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\title{Assignment 1 -- Exercises 1 \& 2\\\large FAECTOR Excellence Program\\Energy System Optimization and Pricing}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Do the solutions answer Q1 and Q2?}
+
+Yes. The implementation in \texttt{Code/Script\_Ex1\&2.py} addresses both questions:
+\begin{itemize}
+  \item \textbf{Question 1:} The market-clearing optimization is formulated and solved using the provided data (\texttt{Data/Realistic Data Generators (1).xlsx} and \texttt{Data/Realistic Data Demand.xlsx}).
+  \item \textbf{Question 2:} The price in each time period is taken as the dual (shadow price) of the power-balance constraint; the script also supports varying $\alpha$ and $\lambda$ to observe how these prices change.
+\end{itemize}
+
+\section{Question 1: Market-clearing formulation and code}
+
+\subsection{Data}
+\begin{itemize}
+  \item \textbf{Generators:} 8 units with maximum capacity $P_g$ and variable cost $MC_g$ (constant over time).
+  \item \textbf{Demand:} 168 time periods and 5 renewable scenarios; one scenario is selected for each run.
+\end{itemize}
+
+\subsection{Decision variables}
+\begin{itemize}
+  \item $p_{g,t} \geq 0$: conventional generation from generator $g$ in period $t$.
+  \item $c_t \geq 0$: curtailed renewable energy in period $t$.
+\end{itemize}
+
+\subsection{Objective}
+Minimize total cost (conventional generation cost plus curtailment penalty):
+\begin{equation}
+  \min \sum_{g,t} MC_g \cdot p_{g,t} + \lambda \sum_t c_t.
+\end{equation}
+
+\subsection{Constraints}
+\begin{itemize}
+  \item \textbf{Power balance} (equality, no free disposal): for each $t$,
+    \begin{equation}
+      \sum_g p_{g,t} + \bigl(\alpha \cdot R_t - c_t\bigr) = D_t,
+    \end{equation}
+    where $R_t$ is the renewable production in the chosen scenario and $D_t$ is demand.
+  \item \textbf{Generation limits:} $0 \leq p_{g,t} \leq P_g$ for all $g,t$.
+  \item \textbf{Curtailment limits:} $0 \leq c_t \leq \alpha R_t$ for all $t$.
+\end{itemize}
+
+Demand is perfectly inelastic; $\alpha \in [0,1]$ scales renewable availability and $\lambda > 0$ is the curtailment penalty. The problem is implemented as a linear program and solved with \texttt{scipy.optimize.linprog} (HiGHS).
+
+\section{Question 2: Prices and sensitivity to $\alpha$ and $\lambda$}
+
+\subsection{Price definition}
+The \emph{market price} in period $t$ is the dual variable (shadow price) of the power-balance constraint for that period. In the solution object these are \texttt{result.eqlin.marginals}; they are reported in the balance table and in \texttt{exercise2\_prices.csv}.
+
+\subsection{Observations}
+\begin{itemize}
+  \item \textbf{Effect of $\alpha$:} For low $\alpha$ (e.g.\ 0.1 or 0.5), renewable supply is small relative to demand, so there is no curtailment and prices remain positive (between the lowest and highest $MC_g$). For $\alpha = 1$, renewable availability is high; in some periods surplus is curtailed and the dual can be \emph{negative}, reflecting that an extra unit of demand would allow using less costly curtailed energy (reducing the penalty $\lambda c_t$).
+  \item \textbf{Effect of $\lambda$:} When there is curtailment, a higher $\lambda$ increases the cost of curtailing; the shadow price of the balance constraint (the market price) becomes more negative in those periods. So $\lambda$ directly influences the magnitude of negative prices when curtailment binds.
+\end{itemize}
+
+The script options \texttt{--compare-alphas} and \texttt{--compare-lambdas} run the model on a grid of values and write summary statistics (average/min/max price, number of periods with negative price, total curtailment) to \texttt{exercise2\_price\_sensitivity.csv}.
+
+\section*{Code and outputs}
+\begin{itemize}
+  \item Script: \texttt{Code/Script\_Ex1\&2.py}.
+  \item Default data: \texttt{Data/Realistic Data Demand.xlsx}, \texttt{Data/Realistic Data Generators (1).xlsx}.
+  \item With \texttt{--save-results}, outputs are written to \texttt{Data/}: \texttt{exercise1\_dispatch.csv}, \texttt{exercise1\_balance.csv}, \texttt{exercise2\_prices.csv}, and optionally \texttt{exercise2\_price\_sensitivity.csv}.
+\end{itemize}
+
+\end{document}
